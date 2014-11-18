@@ -1,21 +1,16 @@
 /****************************************************************
   Core management functions for BC127 modules.
 
-  This code is beerware; if you use it, please buy me (or any other
-  SparkFun employee) a cold beverage next time you run into one of
-  us at the local.
-
-  238 Jan 2014- Mike Hord, SparkFun Electronics
-
-  Code developed in Arduino 1.0.5, on an Arduino Pro Mini 5V.
+  238 Jan 2014 - Mike Hord, SparkFun Electronics
+  Nov 2014 - port to mbed - Alek
  ****************************************************************/
 
 #include "bc127.h"
-#include <Arduino.h>
+#include "mbed.h"
 
-// Constructor. All we really need to do is link the user's Stream instance to
+// Constructor. All we really need to do is link the user's Serial instance to
 //  our local reference.
-BC127::BC127(Stream *sp)
+BC127::BC127(Serial *sp)
 {
 	_serialPort = sp;
 	_numAddresses = -1;
@@ -23,7 +18,7 @@ BC127::BC127(Stream *sp)
 
 // It may be useful to know the address of this module. This function will
 //  pack it into a string for you.
-BC127::opResult BC127::addressQuery(String &address)
+BC127::opResult BC127::addressQuery(string &address)
 {
 	return stdGetParam("LOCAL_ADDR", &address);
 }
@@ -38,23 +33,24 @@ BC127::opResult BC127::addressQuery(String &address)
 //  we can assume something is radically wrong.
 BC127::opResult BC127::setBaudRate(baudRates newSpeed)
 {
+	string speed;
 	// Convert our enum values into strings the module can use.
 	switch(newSpeed)
 	{
 	case BC127::s9600bps:
-		stringSpeed = "9600";
+		speed = "9600";
 		break;
 	case BC127::s19200bps:
-		stringSpeed = "19200";
+		speed = "19200";
 		break;
 	case BC127::s38400bps:
-		stringSpeed = "38400";
+		speed = "38400";
 		break;
 	case BC127::s57600bps:
-		stringSpeed = "57600";
+		speed = "57600";
 		break;
 	case BC127::s115200bps:
-		stringSpeed = "115200";
+		speed = "115200";
 		break;
 	default:
 		return INVALID_PARAM;
@@ -66,7 +62,8 @@ BC127::opResult BC127::setBaudRate(baudRates newSpeed)
 	//  something weird happened to the string before it was sent (honestly, after
 	//  I'm done hammering the dents out, I can't imagine that coming up), and
 	//  TIMEOUT_ERROR indicates one of two things: an actual timeout, OR success
-	//  but we couldn't read it b/c the baud rate was broken. Since we're using
+	//  but we couldn't read it b/c the baud rate was broken.
+	//  FIXME change comment: Since we're using
 	//  the inheritance of the Stream class to manipulate our serial ports, we
 	//  can't change the baud rate. The user should probably just interpret
 	//  TIMEOUT_ERROR as success, and call it good.
@@ -75,16 +72,14 @@ BC127::opResult BC127::setBaudRate(baudRates newSpeed)
 
 // There are several commands that look for either OK or ERROR; let's abstract
 //  support for those commands to one single private function, to save memory.
-BC127::opResult BC127::stdCmd(String command)
+BC127::opResult BC127::stdCmd(string command)
 {
-	String buffer;
-	String EOL = String("\n\r");
+	string buffer;
+	string EOL = string("\n\r");
 
 	knownStart(); // Clear the serial buffer in the module and the Arduino.
 
-	_serialPort->print(command);
-	_serialPort->print("\r");
-	_serialPort->flush();
+	_serialPort->printf("%s\r", command.c_str());
 
 	// We're going to use the internal timer to track the elapsed time since we
 	//  issued the command. Bog-standard Arduino stuff.
@@ -94,7 +89,8 @@ BC127::opResult BC127::stdCmd(String command)
 	while ((startTime + 3000) > millis())
 	{
 		// Grow the current buffered data, until we receive the EOL string.
-		if (_serialPort->available() > 0) buffer.concat(char(_serialPort->read()));
+		if (_serialPort->readable() == 1)
+			buffer.concat(char(_serialPort->getc()));
 
 		if (buffer.endsWith(EOL))
 		{
@@ -107,19 +103,14 @@ BC127::opResult BC127::stdCmd(String command)
 }
 
 // Similar to the command function, let's do a set parameter genrealization.
-BC127::opResult BC127::stdSetParam(String command, String param)
+BC127::opResult BC127::stdSetParam(string command, string param)
 {
-	String buffer;
-	String EOL = String("\n\r");
+	string buffer;
+	string EOL = string("\n\r");
 
 	knownStart();  // Clear Arduino and module serial buffers.
 
-	_serialPort->print("SET ");
-	_serialPort->print(command);
-	_serialPort->print("=");
-	_serialPort->print(param);
-	_serialPort->print("\r");
-	_serialPort->flush();
+	_serialPort->printf("SET %s=%s\r", command.c_str(), param.c_str());
 
 	// We're going to use the internal timer to track the elapsed time since we
 	//  issued the reset. Bog-standard Arduino stuff.
@@ -129,7 +120,8 @@ BC127::opResult BC127::stdSetParam(String command, String param)
 	while ((startTime + 2000) > millis())
 	{
 		// Grow the current buffered data, until we receive the EOL string.
-		if (_serialPort->available() >0) buffer.concat(char(_serialPort->read()));
+		if (_serialPort->readable() == 1)
+			buffer.concat(char(_serialPort->getc()));
 
 		if (buffer.endsWith(EOL))
 		{
@@ -144,17 +136,14 @@ BC127::opResult BC127::stdSetParam(String command, String param)
 // Also, do a get paramater generalization. This is, of course, a bit more
 //  difficult; we need to return both the result (SUCCESS/ERROR) and the
 //  string returned.
-BC127::opResult BC127::stdGetParam(String command, String *param)
+BC127::opResult BC127::stdGetParam(string command, string *param)
 {
-	String buffer;
-	String EOL = String("\n\r");
+	string buffer;
+	string EOL = string("\n\r");
 
 	knownStart();  // Clear the serial buffers.
 
-	_serialPort->print("GET ");
-	_serialPort->print(command);
-	_serialPort->print("\r");
-	_serialPort->flush();
+	_serialPort->printf("GET %s\r", command.c_str());
 
 	// We're going to use the internal timer to track the elapsed time since we
 	//  issued the get command. Bog-standard Arduino stuff.
@@ -164,12 +153,15 @@ BC127::opResult BC127::stdGetParam(String command, String *param)
 	while (loopStart + 2000 > millis())
 	{
 		// Grow the current buffered data, until we receive the EOL string.
-		if (_serialPort->available() >0) buffer.concat(char(_serialPort->read()));
+		if (_serialPort->readable() == 1)
+			buffer.concat(char(_serialPort->getc()));
 
 		if (buffer.endsWith(EOL))
 		{
-			if (buffer.startsWith("ER")) return MODULE_ERROR;
-			if (buffer.startsWith("OK")) return SUCCESS;
+			if (buffer.startsWith("ER"))
+				return MODULE_ERROR;
+			if (buffer.startsWith("OK"))
+				return SUCCESS;
 			if (buffer.startsWith(command))
 			{
 				(*param) = buffer.substring(command.length()+1);
@@ -225,15 +217,13 @@ BC127::opResult BC127::writeConfig()
 // We'll buffer characters until we see an EOL (\n\r), then check the string.
 BC127::opResult BC127::reset()
 {
-	String buffer;
-	String EOL = String("\n\r");
+	string buffer;
+	string EOL = string("\n\r");
 
 	knownStart();
 
 	// Now issue the reset command.
-	_serialPort->print("RESET");
-	_serialPort->print("\r");
-	_serialPort->flush();
+	_serialPort->printf("RESET\r");
 
 	// We're going to use the internal timer to track the elapsed time since we
 	//  issued the reset. Bog-standard Arduino stuff.
@@ -243,9 +233,9 @@ BC127::opResult BC127::reset()
 	while ((resetStart + 2000) > millis())
 	{
 		// Grow the current buffered data, until we receive the EOL string.
-		if (_serialPort->available() > 0)
+		if (_serialPort->readable() == 1)
 		{
-			char temp = _serialPort->read();
+			char temp = _serialPort->getc();
 			buffer.concat(temp);
 		}
 
@@ -264,11 +254,10 @@ BC127::opResult BC127::reset()
 //  the module. If not, we'll just get an error.
 BC127::opResult BC127::knownStart()
 {
-	String EOL = String("\n\r");
-	String buffer = "";
+	string EOL = string("\n\r");
+	string buffer = "";
 
-	_serialPort->print("\r");
-	_serialPort->flush();
+	_serialPort->printf("\r");
 
 	// We're going to use the internal timer to track the elapsed time since we
 	//  issued the reset. Bog-standard Arduino stuff.
@@ -280,13 +269,15 @@ BC127::opResult BC127::knownStart()
 	{
 		// Purge the serial data received from the module, along with any data in
 		//  the buffer at the time this command was sent.
-		if (_serialPort->available() >0)
+		if (_serialPort->readable() == 1)
 		{
-			buffer.concat(char(_serialPort->read()));
+			buffer.concat(char(_serialPort->getc()));
 			startTime = millis();
 		}
 		if ((startTime + 1000) < millis()) return TIMEOUT_ERROR;
 	}
-	if (buffer.startsWith("ERR")) return SUCCESS;
-	else return SUCCESS;
+	if (buffer.startsWith("ERR"))
+		return SUCCESS;
+	else
+		return SUCCESS;
 }

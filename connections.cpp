@@ -1,17 +1,10 @@
 /****************************************************************
   Connection management functions for BC127 modules.
 
-  This code is beerware; if you use it, please buy me (or any other
-  SparkFun employee) a cold beverage next time you run into one of
-  us at the local.
-
   238 Jan 2014- Mike Hord, SparkFun Electronics
-
-  Code developed in Arduino 1.0.5, on an Arduino Pro Mini 5V.
  ****************************************************************/
 
 #include "bc127.h"
-#include <Arduino.h>
 
 // One of the neat features of the BC127 is the ability to control an audio
 //  player remotely. This function will activate those features, programmatically.
@@ -75,9 +68,9 @@ BC127::opResult BC127::BLEScan(int timeout)
 	// We're going to assume that what's going to happen is a timeout with no
 	//  valid input from the module.
 	int result = 0;
-	String buffer = "";
-	String addressTemp;
-	String EOL = String("\n\r");
+	string buffer = "";
+	string addressTemp;
+	string EOL = string("\n\r");
 
 	for (byte i = 0; i <5; i++) _addresses[i] = "";
 	_numAddresses = 0;
@@ -166,8 +159,8 @@ BC127::opResult BC127::enterDataMode()
 //  response.
 BC127::opResult BC127::exitDataMode(int guardDelay)
 {
-	String buffer;
-	String EOL = String("\n\r"); // This is just handy.
+	string buffer;
+	string EOL = string("\n\r"); // This is just handy.
 
 	delay(guardDelay);
 
@@ -205,7 +198,7 @@ BC127::opResult BC127::connect(char index, connType connection)
 // connect by address
 //  Attempts to connect to one of the Bluetooth devices which has an address
 //  stored in the _addresses array.
-BC127::opResult BC127::connect(String address, connType connection)
+BC127::opResult BC127::connect(string address, connType connection)
 {
 	// Before we go any further, we'll do a simple error check on the incoming
 	//  address. We know that it should be 12 hex digits, all uppercase; to
@@ -214,8 +207,8 @@ BC127::opResult BC127::connect(String address, connType connection)
 	if (address.length() != 12) return INVALID_PARAM;
 
 	// We need a buffer to store incoming data.
-	String buffer;
-	String EOL = String("\n\r"); // This is just handy.
+	string buffer;
+	string EOL = string("\n\r"); // This is just handy.
 
 	// Convert our connType enum into the actual string we need to send to the
 	//  BC127 module.
@@ -304,9 +297,9 @@ BC127::opResult BC127::inquiry(int timeout)
 {
 
 	int result = 0;
-	String buffer = "";
-	String addressTemp;
-	String EOL = String("\n\r");
+	string buffer = "";
+	string addressTemp;
+	string EOL = string("\n\r");
 
 	for (byte i = 0; i <5; i++) _addresses[i] = "";
 	_numAddresses = -1;
@@ -394,11 +387,11 @@ BC127::opResult BC127::inquiry(int timeout)
 // Gets an address from the array of stored addresses. The return value allows
 //  the user to check on whether there was in fact a valid address at the
 //  requested index.
-BC127::opResult BC127::getAddress(char index, String &address)
+BC127::opResult BC127::getAddress(char index, string &address)
 {
 	if (index+1 > _numAddresses)
 	{
-		String tempString = "";
+		string tempString = "";
 		address = tempString;
 		return INVALID_PARAM;
 	}
@@ -415,8 +408,8 @@ BC127::opResult BC127::getAddress(char index, String &address)
 //  and give up on identifying connections by type.
 BC127::opResult BC127::connectionState()
 {
-	String buffer;
-	String EOL = String("\n\r");
+	string buffer;
+	string EOL = string("\n\r");
 
 	opResult retVal = TIMEOUT_ERROR;
 
